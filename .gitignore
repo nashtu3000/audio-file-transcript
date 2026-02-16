@@ -1,0 +1,23 @@
+# API Keys and Environment Variables
+.env
+.env.local
+
+# Temporary files
+temp_chunks/
+*_converted.mp3
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Transcripts (optional - remove this line if you want to track transcripts)
+*_transcript*.txt
+
+# macOS
+.DS_Store
+
+# Claude Code
+.claude/
