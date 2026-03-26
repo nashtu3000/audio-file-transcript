@@ -6,6 +6,27 @@
 temp_chunks/
 *_converted.mp3
 
+# Media files (audio)
+*.mp3
+*.m4a
+*.wav
+*.aac
+*.ogg
+*.flac
+*.wma
+
+# Media files (video)
+*.mp4
+*.mov
+*.avi
+*.mkv
+*.webm
+*.flv
+
+# Duplicate files (macOS)
+*\ 2.py
+*\ 2.*
+
 # Python cache
 __pycache__/
 *.pyc
