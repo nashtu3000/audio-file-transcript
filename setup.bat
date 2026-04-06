@@ -1,7 +1,7 @@
 @echo off
 setlocal EnableDelayedExpansion
 REM Setup script for Audio Transcription with Gemini (Windows)
-REM Handles PATH issues automatically
+REM Creates a virtual environment to guarantee packages are always available
 
 echo ==================================================
 echo Audio Transcription Setup (Windows)
@@ -44,7 +44,6 @@ for /d %%D in ("%LOCALAPPDATA%\Python\pythoncore-*") do (
 )
 if defined PYCMD goto :found_python
 
-REM Check Program Files for system-wide installs
 for /d %%D in ("%ProgramFiles%\Python3*") do (
     if exist "%%D\python.exe" (
         set "PYCMD=%%D\python.exe"
@@ -64,60 +63,37 @@ for /f "tokens=*" %%i in ('!PYCMD! --version 2^>^&1') do set "PYVER=%%i"
 echo [OK] !PYVER! found
 echo.
 
-REM ---- GET PYTHON DIRECTORIES AND FIX PATH ----
-for /f "tokens=*" %%i in ('!PYCMD! -c "import sys, os; print(os.path.dirname(sys.executable))"') do set "PYDIR=%%i"
-set "SCRIPTSDIR=!PYDIR!\Scripts"
+REM ---- CREATE VIRTUAL ENVIRONMENT ----
+set "VENV_DIR=%~dp0.venv"
+set "VENV_PYTHON=%VENV_DIR%\Scripts\python.exe"
 
-REM Add Python dir to current session PATH if missing
-echo !PATH! | findstr /I /C:"!PYDIR!" >nul 2>&1
-if !errorlevel! neq 0 (
-    echo [!] Adding Python directory to PATH: !PYDIR!
-    set "PATH=!PYDIR!;!PATH!"
-    set "PATHFIXED=1"
-)
-
-REM Add Scripts dir to current session PATH if missing
-echo !PATH! | findstr /I /C:"!SCRIPTSDIR!" >nul 2>&1
-if !errorlevel! neq 0 (
-    echo [!] Adding Python Scripts directory to PATH: !SCRIPTSDIR!
-    set "PATH=!SCRIPTSDIR!;!PATH!"
-    set "PATHFIXED=1"
-)
-
-REM Permanently add to user PATH if we had to fix anything
-if defined PATHFIXED (
-    echo.
-    echo     Saving to user PATH permanently...
-    powershell -Command ^
-        "$userPath = [Environment]::GetEnvironmentVariable('PATH', 'User');" ^
-        "$pyDir = '!PYDIR!';" ^
-        "$scriptsDir = '!SCRIPTSDIR!';" ^
-        "if ($userPath -notlike \"*$pyDir*\") { $userPath = \"$pyDir;$userPath\" };" ^
-        "if ($userPath -notlike \"*$scriptsDir*\") { $userPath = \"$scriptsDir;$userPath\" };" ^
-        "[Environment]::SetEnvironmentVariable('PATH', $userPath, 'User')"
-    if !errorlevel! equ 0 (
-        echo     [OK] PATH updated permanently
-        echo     Note: Restart your terminal after setup for PATH changes to take effect.
-    ) else (
-        echo     [!] Could not update PATH permanently.
-        echo         Manually add these to your system PATH:
-        echo           !PYDIR!
-        echo           !SCRIPTSDIR!
+if exist "!VENV_PYTHON!" (
+    echo [OK] Virtual environment already exists
+) else (
+    echo Creating virtual environment...
+    !PYCMD! -m venv "!VENV_DIR!"
+    if !errorlevel! neq 0 (
+        echo [X] Failed to create virtual environment.
+        echo     Try manually: !PYCMD! -m venv .venv
+        echo.
+        pause
+        exit /b 1
     )
-    echo.
+    echo [OK] Virtual environment created
+)
+echo.
+
+REM ---- PIP (inside venv) ----
+"!VENV_PYTHON!" -m pip --version >nul 2>&1
+if !errorlevel! neq 0 (
+    echo [!] pip not found in venv, attempting to install...
+    "!VENV_PYTHON!" -m ensurepip --upgrade >nul 2>&1
 )
 
-REM ---- PIP ----
-!PYCMD! -m pip --version >nul 2>&1
+"!VENV_PYTHON!" -m pip --version >nul 2>&1
 if !errorlevel! neq 0 (
-    echo [!] pip not found, attempting to install...
-    !PYCMD! -m ensurepip --upgrade >nul 2>&1
-)
-
-!PYCMD! -m pip --version >nul 2>&1
-if !errorlevel! neq 0 (
-    echo [X] Could not find or install pip.
-    echo     Try manually: !PYCMD! -m ensurepip --upgrade
+    echo [X] Could not find or install pip in virtual environment.
+    echo     Try deleting the .venv folder and running setup again.
     echo.
     pause
     exit /b 1
@@ -126,9 +102,9 @@ if !errorlevel! neq 0 (
 echo [OK] pip found
 echo.
 
-REM ---- INSTALL DEPENDENCIES ----
+REM ---- INSTALL DEPENDENCIES (inside venv) ----
 echo Installing Python dependencies...
-!PYCMD! -m pip install -r requirements.txt
+"!VENV_PYTHON!" -m pip install -r requirements.txt
 if !errorlevel! neq 0 (
     echo [X] Failed to install Python dependencies
     echo.
@@ -137,24 +113,13 @@ if !errorlevel! neq 0 (
 )
 
 REM Verify packages are actually importable
-!PYCMD! -c "import google.genai; import pydub; print('ok')" >nul 2>&1
+"!VENV_PYTHON!" -c "from google import genai; from pydub import AudioSegment; print('ok')" >nul 2>&1
 if !errorlevel! neq 0 (
-    echo [!] Packages installed but not importable. Retrying with --user flag...
-    !PYCMD! -m pip install --user -r requirements.txt
-    if !errorlevel! neq 0 (
-        echo [X] Failed to install Python dependencies
-        echo.
-        pause
-        exit /b 1
-    )
-    !PYCMD! -c "import google.genai; import pydub; print('ok')" >nul 2>&1
-    if !errorlevel! neq 0 (
-        echo [X] Dependencies installed but still not importable.
-        echo     Try running: !PYCMD! -m pip install --user -r requirements.txt
-        echo.
-        pause
-        exit /b 1
-    )
+    echo [X] Dependencies installed but not importable.
+    echo     Try deleting the .venv folder and running setup again.
+    echo.
+    pause
+    exit /b 1
 )
 
 echo.
@@ -231,13 +196,8 @@ echo ==================================================
 echo Setup Complete!
 echo ==================================================
 echo.
-echo You can now run:
-echo   !PYCMD! transcribe_audio.py
+echo To transcribe audio, use:
+echo   run.bat
 echo.
-if defined PATHFIXED (
-    echo IMPORTANT: Restart your terminal first so PATH changes take effect.
-    echo After restarting you can also use: py transcribe_audio.py
-    echo.
-)
 pause
 endlocal

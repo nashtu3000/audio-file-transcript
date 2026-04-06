@@ -27,6 +27,9 @@ temp_chunks/
 *\ 2.py
 *\ 2.*
 
+# Virtual environment
+.venv/
+
 # Python cache
 __pycache__/
 *.pyc
