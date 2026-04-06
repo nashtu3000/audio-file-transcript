@@ -8,6 +8,7 @@ Parallel Audio Transcription with Gemini 2.0 Flash
 """
 
 import os
+import sys
 import time
 import re
 import shutil
@@ -19,8 +20,15 @@ from typing import List, Tuple, Optional
 from dataclasses import dataclass
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from threading import Lock
-from google import genai
-from google.genai import types
+
+try:
+    from google import genai
+    from google.genai import types
+except ImportError:
+    print("Error: Required packages not found.")
+    print("On Windows, use run.bat instead of running this script directly.")
+    print("Or run: setup.bat to install dependencies first.")
+    sys.exit(1)
 
 # Try to import pydub for audio processing
 try:
